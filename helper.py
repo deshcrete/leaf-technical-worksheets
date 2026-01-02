@@ -349,10 +349,10 @@ class BiasedHumanSimulator:
                 return (move_b, move_a)
 
 
-def trainQLearning(num_games=5000):
+def trainQLearning(num_games=5000, epsilon=0.5):
     """Train Q-Learning AI by playing against RandomAI"""
 
-    q_ai = QLearningAI(model=None, playerType="X", epsilon=0.5, learning_rate=0.5)
+    q_ai = QLearningAI(model=None, playerType="X", epsilon=epsilon, learning_rate=0.5)
 
     results = {"wins": 0, "losses": 0, "ties": 0}
     win_rates = []
