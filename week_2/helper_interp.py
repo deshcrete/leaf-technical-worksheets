@@ -118,6 +118,66 @@ def load_data(train_csv, test_csv):
     return train_images, train_labels, test_images, test_labels
 
 
+def setup_data(batch_size=64):
+    """
+    Download MNIST data (if needed) and return images, labels, and dataloaders.
+
+    This function handles everything needed to get the data ready:
+    1. Downloads MNIST using torchvision (if CSV files don't exist)
+    2. Converts to CSV format for easy inspection
+    3. Loads the data as tensors
+    4. Creates DataLoaders for training
+
+    Args:
+        batch_size: Batch size for the dataloaders (default: 64)
+
+    Returns:
+        Tuple of (train_images, train_labels, test_images, test_labels, train_loader, test_loader)
+    """
+    import os
+
+    # Download and convert to CSV if needed
+    if not os.path.exists('mnist_train_small.csv') or not os.path.exists('mnist_test.csv'):
+        print("Downloading MNIST dataset...")
+        from torchvision import datasets
+
+        train_data = datasets.MNIST(root='./data', train=True, download=True)
+        test_data = datasets.MNIST(root='./data', train=False, download=True)
+
+        print("Converting to CSV format...")
+
+        # Training data
+        train_imgs = train_data.data.numpy().reshape(-1, 784)
+        train_lbls = train_data.targets.numpy()
+        train_df = pd.DataFrame(train_imgs)
+        train_df.insert(0, 'label', train_lbls)
+        train_df.to_csv('mnist_train_small.csv', index=False)
+
+        # Test data
+        test_imgs = test_data.data.numpy().reshape(-1, 784)
+        test_lbls = test_data.targets.numpy()
+        test_df = pd.DataFrame(test_imgs)
+        test_df.insert(0, 'label', test_lbls)
+        test_df.to_csv('mnist_test.csv', index=False)
+
+        print("Download complete!")
+
+    # Load the data
+    train_images, train_labels, test_images, test_labels = load_data(
+        'mnist_train_small.csv',
+        'mnist_test.csv'
+    )
+
+    # Create dataloaders
+    train_loader, test_loader = create_dataloaders(
+        train_images, train_labels, test_images, test_labels, batch_size=batch_size
+    )
+
+    print(f"Loaded {len(train_images)} training samples and {len(test_images)} test samples")
+
+    return train_images, train_labels, test_images, test_labels, train_loader, test_loader
+
+
 def create_dataloaders(train_images, train_labels, test_images, test_labels, batch_size=64):
     """Create PyTorch DataLoaders for training and testing."""
     train_dataset = TensorDataset(train_images, train_labels)
@@ -230,7 +290,7 @@ def visualize_sample_digits(images, labels):
 
 
 def visualize_prediction(model, image, true_label):
-    """Show input digit, raw logits, and softmax probabilities."""
+    """Show input digit, raw logits, softmax transformation, and probabilities."""
     model.eval()
     with torch.no_grad():
         logits = model(image.unsqueeze(0))
@@ -238,37 +298,50 @@ def visualize_prediction(model, image, true_label):
 
     predicted = probs.argmax().item()
     confidence = probs[predicted].item()
+    logits_np = logits.squeeze().numpy()
+    probs_np = probs.numpy()
 
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
 
-    # Input image
+    # 1. Input image
     axes[0].imshow(image.reshape(28, 28), cmap='gray')
     axes[0].set_title(f'Input (Label: {true_label})', fontweight='bold')
     axes[0].axis('off')
 
-    # Raw logits
+    # 2. Raw logits
     colors = ['#2ecc71' if i == predicted else '#3498db' for i in range(10)]
-    axes[1].bar(range(10), logits.squeeze().numpy(), color=colors)
+    axes[1].bar(range(10), logits_np, color=colors)
     axes[1].set_xlabel('Digit')
-    axes[1].set_ylabel('Logit')
-    axes[1].set_title('Raw Logits (before softmax)', fontweight='bold')
+    axes[1].set_ylabel('Logit value')
+    axes[1].set_title('1. Raw Logits', fontweight='bold')
     axes[1].set_xticks(range(10))
     axes[1].axhline(y=0, color='gray', linestyle='-', alpha=0.3)
 
-    # Probability distribution
-    colors = ['#27ae60' if i == predicted else '#95a5a6' for i in range(10)]
-    bars = axes[2].bar(range(10), probs.numpy() * 100, color=colors)
+    # 3. After exponentiation (e^logit) - intermediate step
+    exp_logits = np.exp(logits_np)
+    colors = ['#e74c3c' if i == predicted else '#f39c12' for i in range(10)]
+    axes[2].bar(range(10), exp_logits, color=colors)
     axes[2].set_xlabel('Digit')
-    axes[2].set_ylabel('Probability (%)')
-    axes[2].set_title(f'Prediction: {predicted} ({confidence*100:.1f}%)', fontweight='bold')
+    axes[2].set_ylabel('e^logit')
+    axes[2].set_title(f'2. After e^x (sum={exp_logits.sum():.1f})', fontweight='bold')
     axes[2].set_xticks(range(10))
-    axes[2].set_ylim(0, 105)
 
-    for i, (bar, p) in enumerate(zip(bars, probs)):
+    # 4. Probability distribution (after normalizing)
+    colors = ['#27ae60' if i == predicted else '#95a5a6' for i in range(10)]
+    bars = axes[3].bar(range(10), probs_np * 100, color=colors)
+    axes[3].set_xlabel('Digit')
+    axes[3].set_ylabel('Probability (%)')
+    axes[3].set_title(f'3. After Softmax → Prediction: {predicted}', fontweight='bold')
+    axes[3].set_xticks(range(10))
+    axes[3].set_ylim(0, 105)
+
+    for i, (bar, p) in enumerate(zip(bars, probs_np)):
         if p > 0.05:
-            axes[2].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2,
+            axes[3].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2,
                         f'{p*100:.1f}%', ha='center', fontsize=8)
 
+    plt.suptitle(f'Logits → Softmax → Probability (Confidence: {confidence*100:.1f}%)',
+                 fontsize=12, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.show()
 
@@ -371,7 +444,7 @@ def plot_activations(model, image, label=None):
 
 def get_sample_by_digit(images, labels, digit):
     """
-    Get a sample image for a specific digit.
+    Get a random sample image for a specific digit.
 
     Args:
         images: Tensor of images
@@ -381,10 +454,16 @@ def get_sample_by_digit(images, labels, digit):
     Returns:
         Tuple of (image, label) or (None, None) if not found
     """
-    for img, lbl in zip(images, labels):
-        if lbl.item() == digit:
-            return img, lbl.item()
-    return None, None
+    # Find all indices where the label matches the digit
+    matching_indices = (labels == digit).nonzero(as_tuple=True)[0]
+
+    if len(matching_indices) == 0:
+        return None, None
+
+    # Randomly select one using torch (which uses different random state than numpy)
+    rand_idx = torch.randint(len(matching_indices), (1,)).item()
+    idx = matching_indices[rand_idx].item()
+    return images[idx], labels[idx].item()
 
 
 def get_sample_by_index(images, labels, index):

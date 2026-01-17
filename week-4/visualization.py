@@ -59,24 +59,45 @@ def visualize_learned_vs_actual(model, text, stoi, vocab_size, chars):
 
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
+    # Create character labels (handle special chars for display)
+    char_labels = [repr(c)[1:-1] for c in chars]
+
+    # Determine tick positions (show every nth character to avoid crowding)
+    n_chars = len(chars)
+    step = max(1, n_chars // 20)  # Show ~20 labels
+    tick_positions = np.arange(0, n_chars, step)
+    tick_labels = [char_labels[i] for i in tick_positions]
+
     im1 = axes[0].imshow(actual_freqs, cmap="viridis")
-    axes[0].set_title("Actual Bigram Frequencies")
-    axes[0].set_xlabel("To")
-    axes[0].set_ylabel("From")
-    plt.colorbar(im1, ax=axes[0], fraction=0.046)
+    axes[0].set_title("Actual Bigram Frequencies\n(Ground Truth from Text)")
+    axes[0].set_xlabel("Next Character")
+    axes[0].set_ylabel("Current Character")
+    axes[0].set_xticks(tick_positions)
+    axes[0].set_yticks(tick_positions)
+    axes[0].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[0].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im1, ax=axes[0], fraction=0.046, label="Probability")
 
     im2 = axes[1].imshow(learned_probs, cmap="viridis")
-    axes[1].set_title("Learned Probabilities")
-    axes[1].set_xlabel("To")
-    axes[1].set_ylabel("From")
-    plt.colorbar(im2, ax=axes[1], fraction=0.046)
+    axes[1].set_title("Learned Probabilities\n(Model's Predictions)")
+    axes[1].set_xlabel("Next Character")
+    axes[1].set_ylabel("Current Character")
+    axes[1].set_xticks(tick_positions)
+    axes[1].set_yticks(tick_positions)
+    axes[1].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[1].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im2, ax=axes[1], fraction=0.046, label="Probability")
 
     diff = np.abs(learned_probs - actual_freqs)
     im3 = axes[2].imshow(diff, cmap="Reds")
-    axes[2].set_title("Absolute Difference")
-    axes[2].set_xlabel("To")
-    axes[2].set_ylabel("From")
-    plt.colorbar(im3, ax=axes[2], fraction=0.046)
+    axes[2].set_title("Absolute Difference\n(Model Error)")
+    axes[2].set_xlabel("Next Character")
+    axes[2].set_ylabel("Current Character")
+    axes[2].set_xticks(tick_positions)
+    axes[2].set_yticks(tick_positions)
+    axes[2].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[2].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im3, ax=axes[2], fraction=0.046, label="Error")
 
     plt.tight_layout()
     plt.show()
@@ -124,26 +145,47 @@ def compare_embeddings_before_after(model_before_weights, model_after, chars):
     before_probs = F.softmax(torch.tensor(model_before_weights), dim=-1).numpy()
     after_probs = F.softmax(torch.tensor(after_weights), dim=-1).numpy()
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+
+    # Create character labels (handle special chars for display)
+    char_labels = [repr(c)[1:-1] for c in chars]
+
+    # Determine tick positions (show every nth character to avoid crowding)
+    n_chars = len(chars)
+    step = max(1, n_chars // 20)  # Show ~20 labels
+    tick_positions = np.arange(0, n_chars, step)
+    tick_labels = [char_labels[i] for i in tick_positions]
 
     im1 = axes[0].imshow(before_probs, cmap="viridis")
-    axes[0].set_title("Before Training")
-    axes[0].set_xlabel("To")
-    axes[0].set_ylabel("From")
-    plt.colorbar(im1, ax=axes[0], fraction=0.046)
+    axes[0].set_title("Before Training\n(Random Initialization)")
+    axes[0].set_xlabel("Next Character")
+    axes[0].set_ylabel("Current Character")
+    axes[0].set_xticks(tick_positions)
+    axes[0].set_yticks(tick_positions)
+    axes[0].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[0].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im1, ax=axes[0], fraction=0.046, label="Probability")
 
     im2 = axes[1].imshow(after_probs, cmap="viridis")
-    axes[1].set_title("After Training")
-    axes[1].set_xlabel("To")
-    axes[1].set_ylabel("From")
-    plt.colorbar(im2, ax=axes[1], fraction=0.046)
+    axes[1].set_title("After Training\n(Learned Probabilities)")
+    axes[1].set_xlabel("Next Character")
+    axes[1].set_ylabel("Current Character")
+    axes[1].set_xticks(tick_positions)
+    axes[1].set_yticks(tick_positions)
+    axes[1].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[1].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im2, ax=axes[1], fraction=0.046, label="Probability")
 
     diff = after_probs - before_probs
     im3 = axes[2].imshow(diff, cmap="RdBu", vmin=-diff.max(), vmax=diff.max())
-    axes[2].set_title("Change (After - Before)")
-    axes[2].set_xlabel("To")
-    axes[2].set_ylabel("From")
-    plt.colorbar(im3, ax=axes[2], fraction=0.046)
+    axes[2].set_title("Change (After - Before)\n(Red=increased, Blue=decreased)")
+    axes[2].set_xlabel("Next Character")
+    axes[2].set_ylabel("Current Character")
+    axes[2].set_xticks(tick_positions)
+    axes[2].set_yticks(tick_positions)
+    axes[2].set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=8)
+    axes[2].set_yticklabels(tick_labels, fontsize=8)
+    plt.colorbar(im3, ax=axes[2], fraction=0.046, label="Probability Change")
 
     plt.tight_layout()
     plt.show()
@@ -300,3 +342,90 @@ def compare_models(history_list, labels, eval_interval=1000):
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
+
+
+# ============== Linear Representation Hypothesis ==============
+
+def explore_capitalization_direction(model, letter, stoi):
+    """
+    Explore the capitalization direction for a single letter.
+    Shows embeddings, difference vector, and angle with a reference direction.
+    """
+    # Get embeddings
+    lower_emb = model.token_embedding_table.weight[stoi[letter]].detach().numpy()
+    upper_emb = model.token_embedding_table.weight[stoi[letter.upper()]].detach().numpy()
+    diff = upper_emb - lower_emb
+
+    # Compute reference direction (A - a) for comparison
+    ref_lower = model.token_embedding_table.weight[stoi['a']].detach().numpy()
+    ref_upper = model.token_embedding_table.weight[stoi['A']].detach().numpy()
+    ref_diff = ref_upper - ref_lower
+
+    # Compute angle between this letter's direction and reference
+    cos_sim = np.dot(diff, ref_diff) / (np.linalg.norm(diff) * np.linalg.norm(ref_diff) + 1e-8)
+    angle_degrees = np.arccos(np.clip(cos_sim, -1, 1)) * 180 / np.pi
+
+    print(f"Capitalization direction for '{letter}' → '{letter.upper()}'")
+    print("=" * 50)
+    print(f"\nEmbedding for '{letter}':       {lower_emb[:6].round(2)}...")
+    print(f"Embedding for '{letter.upper()}':       {upper_emb[:6].round(2)}...")
+    print(f"Difference ({letter.upper()} - {letter}):    {diff[:6].round(2)}...")
+    print(f"\n📐 Angle from reference (A-a):  {angle_degrees:.1f}°")
+    print(f"   Cosine similarity:           {cos_sim:.3f}")
+    print(f"\nInterpretation:")
+    if angle_degrees < 30:
+        print(f"   ✓ Very similar to (A-a) direction! The model learned a consistent pattern.")
+    elif angle_degrees < 60:
+        print(f"   ~ Somewhat similar to (A-a) direction.")
+    else:
+        print(f"   ✗ Different from (A-a) direction. This letter has its own pattern.")
+
+
+def plot_capitalization_similarity(model, stoi):
+    """
+    Plot cosine similarity matrix between all capitalization directions.
+    Shows whether the model learned a consistent capitalization direction.
+    """
+    # Letter pairs to analyze
+    letter_pairs = [('a','A'), ('b','B'), ('c','C'), ('d','D'), ('e','E'), ('f','F'),
+                    ('h','H'), ('i','I'), ('l','L'), ('m','M'), ('n','N'), ('o','O'),
+                    ('r','R'), ('s','S'), ('t','T'), ('w','W')]
+
+    directions = []
+    labels = []
+
+    for lower, upper in letter_pairs:
+        lower_emb = model.token_embedding_table.weight[stoi[lower]].detach().numpy()
+        upper_emb = model.token_embedding_table.weight[stoi[upper]].detach().numpy()
+        directions.append(upper_emb - lower_emb)
+        labels.append(f"{upper}-{lower}")
+
+    directions = np.array(directions)
+
+    # Compute cosine similarity between all pairs
+    norms = np.linalg.norm(directions, axis=1, keepdims=True)
+    normalized = directions / (norms + 1e-8)
+    similarities = normalized @ normalized.T
+
+    # Plot
+    plt.figure(figsize=(10, 8))
+    plt.imshow(similarities, cmap='RdBu', vmin=-1, vmax=1)
+    plt.xticks(range(len(labels)), labels, rotation=45, ha='right', fontsize=9)
+    plt.yticks(range(len(labels)), labels, fontsize=9)
+    plt.colorbar(label='Cosine Similarity')
+    plt.title('How Similar Are the Capitalization Directions?\n(Red = similar, Blue = opposite)')
+    plt.tight_layout()
+    plt.show()
+
+    # Summary statistics
+    upper_triangle = similarities[np.triu_indices(len(labels), k=1)]
+    avg_sim = upper_triangle.mean()
+
+    print(f"\nAverage similarity: {avg_sim:.3f}")
+    print("\nInterpretation:")
+    if avg_sim > 0.5:
+        print("  ✓ Mostly red → The model learned ONE consistent capitalization direction!")
+    elif avg_sim > 0.2:
+        print("  ~ Mixed colors → The model partially learned capitalization.")
+    else:
+        print("  ✗ Mixed/blue → Each letter has its own unique pattern.")
