@@ -710,6 +710,204 @@ def compareMoveDitributions(num_training_games=3000, num_test_games=500):
     return q_ai, rlhf_ai
 
 
+def visualizeUserRLHF(user_rlhf_ai, num_training_games=3000, num_test_games=500):
+    """
+    Visualize the move distribution of a user-trained RLHF AI compared to Q-Learning.
+
+    Parameters:
+    -----------
+    user_rlhf_ai : RLHF_AI
+        The user-trained RLHF AI instance (e.g., my_rlhf_ai)
+    num_training_games : int
+        Number of games to train the Q-Learning AI for comparison
+    num_test_games : int
+        Number of test games to collect move distributions
+    """
+
+    print("="*70)
+    print("YOUR RLHF AI: Move Distribution Analysis")
+    print("="*70)
+
+    # Train Q-Learning AI for comparison
+    print("\n[1/3] Training Q-Learning AI for comparison...")
+
+    q_ai = QLearningAI(model=None, playerType="X", epsilon=0.5, learning_rate=0.5)
+
+    for _ in range(num_training_games):
+        board = [["+" for _ in range(3)] for _ in range(3)]
+        playerX = Player("X")
+        playerO = Player("O")
+        model = Model(board, "X", playerX, playerO)
+        opponent = RandomAI(model=None, playerType="O")
+
+        while not model.gameOver:
+            if model.turn == "X":
+                x, y = q_ai.getMove(model)
+            else:
+                x, y = opponent.getMove(model)
+            model.makeMove(x, y)
+            model.checkGameOver()
+            if not model.gameOver:
+                model.turn = "O" if model.turn == "X" else "X"
+
+        if model.winner == "X":
+            q_ai.learn(reward=1.0)
+        elif model.winner == "O":
+            q_ai.learn(reward=-1.0)
+        else:
+            q_ai.learn(reward=0.5)
+        q_ai.decayEpsilon(decay_rate=0.999)
+
+    q_ai.epsilon = 0
+    print(f"   Q-Learning trained! Q-table size: {len(q_ai.q_table)}")
+
+    # Collect move distributions
+    print(f"\n[2/3] Playing {num_test_games} test games with each AI...")
+
+    q_moves = np.zeros((3, 3))
+    user_moves = np.zeros((3, 3))
+
+    # Q-Learning test games
+    q_wins, q_losses, q_ties = 0, 0, 0
+    for _ in range(num_test_games):
+        board = [["+" for _ in range(3)] for _ in range(3)]
+        playerX = Player("X")
+        playerO = Player("O")
+        model = Model(board, "X", playerX, playerO)
+        opponent = RandomAI(model=None, playerType="O")
+
+        while not model.gameOver:
+            if model.turn == "X":
+                x, y = q_ai.getMove(model)
+                q_moves[x][y] += 1
+            else:
+                x, y = opponent.getMove(model)
+            model.makeMove(x, y)
+            model.checkGameOver()
+            if not model.gameOver:
+                model.turn = "O" if model.turn == "X" else "X"
+
+        if model.winner == "X":
+            q_wins += 1
+        elif model.winner == "O":
+            q_losses += 1
+        else:
+            q_ties += 1
+
+    # User RLHF test games
+    user_wins, user_losses, user_ties = 0, 0, 0
+    for _ in range(num_test_games):
+        board = [["+" for _ in range(3)] for _ in range(3)]
+        playerX = Player("X")
+        playerO = Player("O")
+        model = Model(board, "X", playerX, playerO)
+        opponent = RandomAI(model=None, playerType="O")
+
+        while not model.gameOver:
+            if model.turn == "X":
+                x, y = user_rlhf_ai.getMove(model)
+                user_moves[x][y] += 1
+            else:
+                x, y = opponent.getMove(model)
+            model.makeMove(x, y)
+            model.checkGameOver()
+            if not model.gameOver:
+                model.turn = "O" if model.turn == "X" else "X"
+
+        if model.winner == "X":
+            user_wins += 1
+        elif model.winner == "O":
+            user_losses += 1
+        else:
+            user_ties += 1
+
+    # Visualize results
+    print("\n[3/3] Creating visualizations...")
+
+    q_moves_pct = q_moves / q_moves.sum() * 100
+    user_moves_pct = user_moves / user_moves.sum() * 100
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    vmax = max(q_moves_pct.max(), user_moves_pct.max())
+
+    # Plot 1: Q-Learning heatmap
+    axes[0].imshow(q_moves_pct, cmap='Blues', vmin=0, vmax=vmax)
+    axes[0].set_title(f'Q-Learning Move Distribution\nWins: {q_wins/num_test_games*100:.1f}%', fontsize=12)
+    for i in range(3):
+        for j in range(3):
+            axes[0].text(j, i, f'{q_moves_pct[i,j]:.1f}%', ha='center', va='center', fontsize=14, fontweight='bold')
+    axes[0].set_xticks([0, 1, 2])
+    axes[0].set_yticks([0, 1, 2])
+    axes[0].set_xticklabels(['Col 0', 'Col 1', 'Col 2'])
+    axes[0].set_yticklabels(['Row 0', 'Row 1', 'Row 2'])
+
+    # Plot 2: User RLHF heatmap
+    axes[1].imshow(user_moves_pct, cmap='Greens', vmin=0, vmax=vmax)
+    axes[1].set_title(f'Your RLHF AI Move Distribution\nWins: {user_wins/num_test_games*100:.1f}%', fontsize=12)
+    for i in range(3):
+        for j in range(3):
+            axes[1].text(j, i, f'{user_moves_pct[i,j]:.1f}%', ha='center', va='center', fontsize=14, fontweight='bold')
+    axes[1].set_xticks([0, 1, 2])
+    axes[1].set_yticks([0, 1, 2])
+    axes[1].set_xticklabels(['Col 0', 'Col 1', 'Col 2'])
+    axes[1].set_yticklabels(['Row 0', 'Row 1', 'Row 2'])
+
+    # Plot 3: Bar chart comparison
+    positions = ['Corners\n(0,0)(0,2)\n(2,0)(2,2)', 'Edges\n(0,1)(1,0)\n(1,2)(2,1)', 'Center\n(1,1)']
+
+    q_corners = q_moves_pct[0,0] + q_moves_pct[0,2] + q_moves_pct[2,0] + q_moves_pct[2,2]
+    q_edges = q_moves_pct[0,1] + q_moves_pct[1,0] + q_moves_pct[1,2] + q_moves_pct[2,1]
+    q_center = q_moves_pct[1,1]
+
+    user_corners = user_moves_pct[0,0] + user_moves_pct[0,2] + user_moves_pct[2,0] + user_moves_pct[2,2]
+    user_edges = user_moves_pct[0,1] + user_moves_pct[1,0] + user_moves_pct[1,2] + user_moves_pct[2,1]
+    user_center = user_moves_pct[1,1]
+
+    x = np.arange(3)
+    width = 0.35
+
+    bars1 = axes[2].bar(x - width/2, [q_corners, q_edges, q_center], width, label='Q-Learning', color='steelblue')
+    bars2 = axes[2].bar(x + width/2, [user_corners, user_edges, user_center], width, label='Your RLHF AI', color='seagreen')
+
+    axes[2].set_ylabel('% of Total Moves')
+    axes[2].set_title('Move Type Comparison', fontsize=12)
+    axes[2].set_xticks(x)
+    axes[2].set_xticklabels(positions)
+    axes[2].legend()
+    axes[2].set_ylim(0, 60)
+
+    for bar in bars1:
+        height = bar.get_height()
+        axes[2].text(bar.get_x() + bar.get_width()/2., height, f'{height:.1f}%', ha='center', va='bottom', fontsize=10)
+    for bar in bars2:
+        height = bar.get_height()
+        axes[2].text(bar.get_x() + bar.get_width()/2., height, f'{height:.1f}%', ha='center', va='bottom', fontsize=10)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print summary
+    print("\n" + "="*70)
+    print("RESULTS SUMMARY: Your Preferences vs Optimal Play")
+    print("="*70)
+    print(f"\n{'Metric':<25} {'Q-Learning':>15} {'Your RLHF AI':>15}")
+    print("-"*55)
+    print(f"{'Win Rate':<25} {q_wins/num_test_games*100:>14.1f}% {user_wins/num_test_games*100:>14.1f}%")
+    print(f"{'Center moves':<25} {q_center:>14.1f}% {user_center:>14.1f}%")
+    print(f"{'Corner moves':<25} {q_corners:>14.1f}% {user_corners:>14.1f}%")
+    print(f"{'Edge moves':<25} {q_edges:>14.1f}% {user_edges:>14.1f}%")
+
+    print("\n" + "="*70)
+    print("INTERPRETATION:")
+    print("="*70)
+    print("Compare your move distribution to Q-Learning (which optimizes for winning).")
+    print("Differences show how YOUR preferences shaped the AI's behavior!")
+    print("="*70)
+
+    return q_ai
+
+
 # =============================================================================
 # HUMAN VS AI GAME CONTROL FLOW
 # =============================================================================
